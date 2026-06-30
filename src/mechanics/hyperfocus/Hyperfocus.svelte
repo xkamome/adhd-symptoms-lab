@@ -130,13 +130,14 @@
       tunnel.update(dt, pointer)
       const f = tunnel.focus
 
-      if (pointer && f.active && f.clarity > 0.7) {
+      // 必須「完全對焦」(clarity 接近滿) 且停在貓上，才會打圈
+      if (pointer && f.active && f.clarity > 0.97) {
         for (const t of cats) {
           if (found.has(t.id)) continue
           const s = tunnel.imgToScreen(t.tx, t.ty)
           if (Math.hypot(f.x - s.x, f.y - s.y) < 42 * dpr) {
             holdT[t.id] = (holdT[t.id] ?? 0) + dt
-            if (holdT[t.id] > 0.3) found.add(t.id)
+            if (holdT[t.id] > 0.2) found.add(t.id)
           } else holdT[t.id] = 0
         }
       } else {

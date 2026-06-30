@@ -20,10 +20,10 @@ export interface FocusTunnelOptions {
 }
 
 const DEFAULTS = {
-  maxDwell: 0.12, // 幾乎一停就清楚
+  maxDwell: 0.35, // 稍微慢一點才完全清楚
   heavyBlur: 8, // 對焦時周邊只比平常稍糊
   mediumBlur: 5, // 平常的普通模糊
-  maxRadiusFrac: 0.13, minRadiusFrac: 0.09, // 針孔感
+  maxRadiusFrac: 0.18, minRadiusFrac: 0.13, // 針孔大一點
   moveThreshold: 4, moveDecay: 0.22, peripheryBoost: 0.6,
 }
 
