@@ -8,18 +8,23 @@ export interface FocusState { x: number; y: number; radius: number; clarity: num
 export interface DecorateApi { toScreen: (tx: number, ty: number) => { x: number; y: number }; dpr: number }
 
 export interface FocusTunnelOptions {
-  maxDwell?: number // 對焦到頂所需秒數
-  heavyBlur?: number // 周邊模糊 (css px)
-  mediumBlur?: number // 對焦鏡初始模糊 (css px)
+  maxDwell?: number // 對焦到頂所需秒數 (越小越「馬上清楚」)
+  heavyBlur?: number // 對焦時周邊額外模糊 (css px)
+  mediumBlur?: number // 平常的「普通不清楚」基準 (css px)
   maxRadiusFrac?: number // 起始視野半徑 (相對 min(W,H))
   minRadiusFrac?: number // 完全對焦時的視野半徑
   moveThreshold?: number // 視為「移動」的位移 (css px)
+  moveDecay?: number // 移動時清晰度衰退到 0 所需秒數 (短暫漸退)
+  peripheryBoost?: number // 對焦時周邊額外模糊的強度 0..1 (越小越「輕微」)
   decorate?: (ctx: CanvasRenderingContext2D, api: DecorateApi) => void // 把疊加物烘進每層 (會一起被模糊)
 }
 
 const DEFAULTS = {
-  maxDwell: 1.1, heavyBlur: 9, mediumBlur: 3.5,
-  maxRadiusFrac: 0.42, minRadiusFrac: 0.14, moveThreshold: 3.5,
+  maxDwell: 0.12, // 幾乎一停就清楚
+  heavyBlur: 8, // 對焦時周邊只比平常稍糊
+  mediumBlur: 5, // 平常的普通模糊
+  maxRadiusFrac: 0.13, minRadiusFrac: 0.09, // 針孔感
+  moveThreshold: 4, moveDecay: 0.22, peripheryBoost: 0.6,
 }
 
 export class FocusTunnel {
@@ -82,8 +87,12 @@ export class FocusTunnel {
     const p = { x: pointerCss.x * this.dpr, y: pointerCss.y * this.dpr }
     if (this.last) {
       const moved = Math.hypot(p.x - this.last.x, p.y - this.last.y)
-      if (moved > this.opt.moveThreshold * this.dpr) this.dwell = 0
-      else this.dwell = Math.min(this.opt.maxDwell, this.dwell + dt)
+      if (moved > this.opt.moveThreshold * this.dpr) {
+        // 移動：短暫漸退而非瞬間歸零
+        this.dwell = Math.max(0, this.dwell - dt * (this.opt.maxDwell / this.opt.moveDecay))
+      } else {
+        this.dwell = Math.min(this.opt.maxDwell, this.dwell + dt)
+      }
     }
     this.last = p
     const prog = this.ease(this.dwell / this.opt.maxDwell)
@@ -93,11 +102,18 @@ export class FocusTunnel {
   }
 
   render(ctx: CanvasRenderingContext2D) {
-    if (!this.heavy) return
+    if (!this.medium) return
     ctx.clearRect(0, 0, this.W, this.H)
-    ctx.drawImage(this.heavy, 0, 0)
+    // 基準：平常的普通模糊
+    ctx.globalAlpha = 1
+    ctx.drawImage(this.medium, 0, 0)
     const f = this.focus
-    if (f.active && f.clarity > 0.001 && this.lens && this.medium && this.sharp) {
+    if (f.active && f.clarity > 0.001 && this.lens && this.heavy && this.sharp) {
+      // 對焦時：周邊「輕微更糊」(疊上 heavy，強度隨專注程度)
+      ctx.globalAlpha = f.clarity * this.opt.peripheryBoost
+      ctx.drawImage(this.heavy, 0, 0)
+      ctx.globalAlpha = 1
+      // 針孔焦點：以普通模糊為底，疊上清晰，柔邊遮罩
       const lx = this.lens.getContext('2d')!
       lx.globalCompositeOperation = 'source-over'
       lx.clearRect(0, 0, this.W, this.H)
@@ -106,9 +122,8 @@ export class FocusTunnel {
       lx.globalAlpha = f.clarity
       lx.drawImage(this.sharp, 0, 0)
       lx.globalAlpha = 1
-      // 用徑向漸層遮罩做出柔邊隧道
       lx.globalCompositeOperation = 'destination-in'
-      const g = lx.createRadialGradient(f.x, f.y, f.radius * 0.55, f.x, f.y, f.radius)
+      const g = lx.createRadialGradient(f.x, f.y, f.radius * 0.5, f.x, f.y, f.radius)
       g.addColorStop(0, 'rgba(255,255,255,1)')
       g.addColorStop(1, 'rgba(255,255,255,0)')
       lx.fillStyle = g
