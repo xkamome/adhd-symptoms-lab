@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
 
-  // 任務（不同圖示/顏色，分散固定位置；用容器百分比定位）
+  // 任務（不同圖示/顏色；給初始位置，之後會緩慢飄移）
   const TASKS = [
     { x: 22, y: 32, color: '#f59e0b', emoji: '🌻' },
     { x: 78, y: 28, color: '#ef4444', emoji: '🌹' },
@@ -16,7 +16,8 @@
   const ATT_DOWN = 1.2
   const FILL = 32
   const DECAY = 8
-  const PREVIEW = 2.8
+  const SPEED = 2.6 // 飄移速度 (%/s)，很慢
+  const X0 = 8, X1 = 92, Y0 = 16, Y1 = 90 // 飄移邊界 (%)
 
   const KEY = 'oos-best'
   function loadBest(): number | null {
@@ -29,8 +30,9 @@
   let attention = $state<number[]>(TASKS.map(() => 0))
   let progress = $state<number[]>(TASKS.map(() => 0))
   let done = $state<boolean[]>(TASKS.map(() => false))
-  let phase = $state<'preview' | 'play' | 'won'>('preview')
-  let previewLeft = $state(PREVIEW)
+  let posX = $state<number[]>(TASKS.map((t) => t.x))
+  let posY = $state<number[]>(TASKS.map((t) => t.y))
+  let won = $state(false)
   let elapsed = $state(0)
   let bestTime = $state<number | null>(loadBest())
 
@@ -41,13 +43,19 @@
   onMount(() => {
     let pointer: { x: number; y: number } | null = null
     let timeSec = 0
-    let preview = PREVIEW
+    const vx: number[] = new Array(N).fill(0)
+    const vy: number[] = new Array(N).fill(0)
 
     function reset() {
-      for (let i = 0; i < N; i++) { attention[i] = 0; progress[i] = 0; done[i] = false }
-      phase = 'preview'; preview = PREVIEW; previewLeft = PREVIEW
-      timeSec = 0; elapsed = 0
+      for (let i = 0; i < N; i++) {
+        attention[i] = 0; progress[i] = 0; done[i] = false
+        posX[i] = TASKS[i].x; posY[i] = TASKS[i].y
+        const a = Math.random() * Math.PI * 2
+        vx[i] = Math.cos(a) * SPEED; vy[i] = Math.sin(a) * SPEED
+      }
+      won = false; timeSec = 0; elapsed = 0
     }
+    reset()
     restart = reset
 
     const pos = (e: PointerEvent) => {
@@ -70,18 +78,27 @@
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
 
-      if (phase === 'preview') {
-        preview -= dt
-        previewLeft = Math.max(0, preview)
-        if (preview <= 0) phase = 'play'
-      } else if (phase === 'play') {
+      if (!won) {
         timeSec += dt
         elapsed = timeSec
         const rect = arena.getBoundingClientRect()
         for (let i = 0; i < N; i++) {
           if (done[i]) { attention[i] = 1; continue }
-          const tx = (TASKS[i].x / 100) * rect.width
-          const ty = (TASKS[i].y / 100) * rect.height
+
+          // 緩慢隨機飄移：輕微轉向 + 邊界反彈
+          const da = (Math.random() - 0.5) * 1.0 * dt
+          const c = Math.cos(da), s = Math.sin(da)
+          const nvx = vx[i] * c - vy[i] * s
+          const nvy = vx[i] * s + vy[i] * c
+          vx[i] = nvx; vy[i] = nvy
+          posX[i] += vx[i] * dt; posY[i] += vy[i] * dt
+          if (posX[i] < X0) { posX[i] = X0; vx[i] = Math.abs(vx[i]) }
+          if (posX[i] > X1) { posX[i] = X1; vx[i] = -Math.abs(vx[i]) }
+          if (posY[i] < Y0) { posY[i] = Y0; vy[i] = Math.abs(vy[i]) }
+          if (posY[i] > Y1) { posY[i] = Y1; vy[i] = -Math.abs(vy[i]) }
+
+          const tx = (posX[i] / 100) * rect.width
+          const ty = (posY[i] / 100) * rect.height
           const near = pointer && Math.hypot(pointer.x - tx, pointer.y - ty) < RADIUS
           attention[i] = Math.max(0, Math.min(1, attention[i] + (near ? ATT_UP : -ATT_DOWN) * dt))
           if (attention[i] > 0.6) progress[i] = Math.min(100, progress[i] + FILL * dt)
@@ -89,7 +106,7 @@
           if (progress[i] >= 100) { done[i] = true; attention[i] = 1 }
         }
         if (done.every(Boolean)) {
-          phase = 'won'
+          won = true
           const t = Math.round(timeSec * 10) / 10
           if (bestTime === null || t < bestTime) { bestTime = t; localStorage.setItem(KEY, String(t)) }
           elapsed = t
@@ -117,7 +134,7 @@
     <div
       class="task"
       class:done={done[i]}
-      style="left:{t.x}%; top:{t.y}%; --c:{t.color}; opacity:{phase === 'preview' || done[i] ? 1 : attention[i]}"
+      style="left:{posX[i]}%; top:{posY[i]}%; --c:{t.color}; opacity:{done[i] ? 1 : attention[i]}"
     >
       <div class="icon">{done[i] ? '✓' : t.emoji}</div>
       <div class="bar"><div class="fill" style="width:{progress[i]}%"></div></div>
@@ -131,14 +148,10 @@
     {#if bestTime !== null}<span class="best">最佳 {fmt(bestTime)}s</span>{/if}
     <span class="count">完成 {doneCount} / {N}</span>
   </div>
-  <div class="task-desc">把游標停在盆栽上「澆水」填滿它；一移開它就枯萎並消失——你得記住還有哪些沒顧到。</div>
+  <div class="task-desc">把游標停在盆栽上「澆水」填滿它；一移開它就枯萎並消失——它們還會慢慢飄走，你得記住跑去哪了。</div>
 </div>
 
-{#if phase === 'preview'}
-  <div class="preview-note">記住它們的位置… {Math.ceil(previewLeft)}</div>
-{/if}
-
-{#if phase === 'won'}
+{#if won}
   <div class="overlay">
     <div class="panel">
       <h1>四盆都顧好了</h1>
@@ -190,13 +203,6 @@
   .best { font-size: 13px; color: #fcd34d; }
   .count { font-size: 14px; margin-left: auto; font-weight: 700; }
   .task-desc { font-size: 13px; color: #aeb8c8; max-width: 640px; }
-
-  .preview-note {
-    position: fixed; top: 50%; left: 0; right: 0; transform: translateY(-50%);
-    text-align: center; font-size: 22px; font-weight: 700; color: #f1f5f9;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8); pointer-events: none;
-    font-family: system-ui, "Microsoft JhengHei", sans-serif;
-  }
 
   .overlay {
     position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
