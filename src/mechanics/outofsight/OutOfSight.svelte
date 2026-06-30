@@ -18,6 +18,12 @@
   const DECAY = 8
   const PREVIEW = 2.8
 
+  const KEY = 'oos-best'
+  function loadBest(): number | null {
+    const v = Number(localStorage.getItem(KEY))
+    return v > 0 ? v : null
+  }
+
   let arena: HTMLDivElement
 
   let attention = $state<number[]>(TASKS.map(() => 0))
@@ -29,12 +35,6 @@
   let bestTime = $state<number | null>(loadBest())
 
   const doneCount = $derived(done.filter(Boolean).length)
-
-  const KEY = 'oos-best'
-  function loadBest(): number | null {
-    const v = Number(localStorage.getItem(KEY))
-    return v > 0 ? v : null
-  }
 
   let restart = $state<() => void>(() => {})
 
