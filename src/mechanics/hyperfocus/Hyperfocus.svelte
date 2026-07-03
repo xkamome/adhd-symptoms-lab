@@ -14,6 +14,11 @@
   let result = $state<'found' | 'gaveup'>('found')
   let finalTime = $state(0)
   let title = $state('')
+  let revealed = $state(false)
+  let overflowX = $state(false)
+  let viewStart = $state(0)
+  let viewSize = $state(1)
+  let coarsePointer = $state(false)
 
   type Rec = { result: 'found' | 'gaveup'; seconds: number; painting: string; ts: number }
   const KEY = 'hf-records'
@@ -34,14 +39,19 @@
 
   let startRound = $state<() => void>(() => {})
   let giveUp = $state<() => void>(() => {})
+  let toggleReveal = $state<() => void>(() => {})
 
   onMount(() => {
     const ctx = canvas.getContext('2d')!
-    const dpr = Math.max(1, window.devicePixelRatio || 1)
+    // dpr cap 2：手機 dpr 3 時避免離屏三層模糊圖過大吃記憶體
+    const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
+    coarsePointer = matchMedia('(pointer: coarse)').matches
     const imgCache = new Map<string, HTMLImageElement>()
 
     let tunnel: FocusTunnel | null = null
     let pointer: { x: number; y: number } | null = null
+    let down = false
+    let dragLast: { x: number; y: number } | null = null
     let cats: CatTarget[] = []
     const found = new Set<string>()
     const holdT: Record<string, number> = {}
@@ -61,7 +71,7 @@
       const p = randomPainting()
       cats = randomCats(3)
       title = p.title
-      ready = false; running = false; ended = false
+      ready = false; running = false; ended = false; revealed = false
       found.clear()
       for (const k in holdT) delete holdT[k]
       blips = []; blipTimer = 1.2; timeSec = 0
@@ -75,7 +85,8 @@
 
       let img = imgCache.get(p.url)
       const init = () => {
-        tunnel = new FocusTunnel(img!, { decorate })
+        // 手機直屏抓橫幅畫時，觸控 threshold 放寬（手指抖動比滑鼠大）
+        tunnel = new FocusTunnel(img!, { decorate, moveThreshold: coarsePointer ? 8 : 4 })
         doResize()
         ready = true; running = true
       }
@@ -99,6 +110,11 @@
 
     startRound = newRound
     giveUp = () => { if (running) endRound('gaveup') }
+    toggleReveal = () => {
+      if (!tunnel) return
+      tunnel.revealed = !tunnel.revealed
+      revealed = tunnel.revealed
+    }
 
     const ro = new ResizeObserver(doResize)
     ro.observe(canvas)
@@ -107,10 +123,26 @@
       const r = canvas.getBoundingClientRect()
       return { x: e.clientX - r.left, y: e.clientY - r.top }
     }
-    const onMove = (e: PointerEvent) => { pointer = pos(e) }
-    const onDown = (e: PointerEvent) => { pointer = pos(e); if (e.pointerType === 'touch') canvas.setPointerCapture(e.pointerId) }
-    const onUp = (e: PointerEvent) => { if (e.pointerType === 'touch') pointer = null }
-    const onLeave = () => { pointer = null }
+    const onMove = (e: PointerEvent) => {
+      const p = pos(e)
+      if (down && dragLast) {
+        // 拖曳中：畫面跟著手指平移；手指真的停住（無位移）時，讓 FocusTunnel 自己的
+        // 停留偵測接手開始對焦——不需要額外的「平移/對焦模式」切換邏輯。
+        tunnel?.pan(p.x - dragLast.x, p.y - dragLast.y)
+        dragLast = p
+      }
+      pointer = p
+    }
+    const onDown = (e: PointerEvent) => {
+      const p = pos(e)
+      pointer = p; down = true; dragLast = p
+      if (e.pointerType === 'touch') canvas.setPointerCapture(e.pointerId)
+    }
+    const onUp = (e: PointerEvent) => {
+      down = false; dragLast = null
+      if (e.pointerType === 'touch') pointer = null
+    }
+    const onLeave = () => { pointer = null; down = false; dragLast = null }
     canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('pointerdown', onDown)
     canvas.addEventListener('pointerup', onUp)
@@ -129,6 +161,8 @@
       elapsed = timeSec
       tunnel.update(dt, pointer)
       const f = tunnel.focus
+      overflowX = tunnel.overflowX
+      if (overflowX) { const v = tunnel.viewX; viewStart = v.start; viewSize = v.size }
 
       // 必須「完全對焦」(clarity 接近滿) 且停在貓上，才會打圈
       if (pointer && f.active && f.clarity > 0.97) {
@@ -176,7 +210,7 @@
         ctx.lineWidth = 3 * dpr
         ctx.beginPath(); ctx.arc(s.x, s.y, 30 * dpr, 0, Math.PI * 2); ctx.stroke()
       }
-      if (pointer && f.active) {
+      if (pointer && f.active && !tunnel.revealed) {
         ctx.strokeStyle = `rgba(255,255,255,${0.25 + f.clarity * 0.4})`
         ctx.lineWidth = 1.5 * dpr
         ctx.beginPath(); ctx.arc(f.x, f.y, 4 * dpr, 0, Math.PI * 2); ctx.stroke()
@@ -219,7 +253,10 @@
   <div class="row">
     <span class="timer">{fmt(elapsed)}s</span>
     {#if bestFound !== Infinity}<span class="best">最快 {fmt(bestFound)}s</span>{/if}
-    {#if !ended}<button class="giveup" onclick={giveUp}>放棄</button>{/if}
+    {#if !ended}
+      <button class="reveal" class:active={revealed} onclick={toggleReveal}>{revealed ? '藏起來' : '看答案'}</button>
+      <button class="giveup" onclick={giveUp}>放棄</button>
+    {/if}
   </div>
   <div class="task">{TASK}</div>
   <div class="stats">
@@ -229,7 +266,13 @@
   </div>
 </div>
 
-<div class="hint">移到一處「停住不動」→ 中央立刻變清晰、周邊更糊；一移動就重置</div>
+<div class="hint">
+  {coarsePointer ? '拖曳移動視野・停住不動開始對焦' : '移到一處「停住不動」→ 中央立刻變清晰、周邊更糊；按住拖曳可平移；一移動就重置'}
+</div>
+
+{#if overflowX && !ended}
+  <div class="viewbar"><div class="viewfill" style="left:{viewStart * 100}%; width:{viewSize * 100}%"></div></div>
+{/if}
 
 {#if ended}
   <div class="overlay">
@@ -268,11 +311,18 @@
     font-family: system-ui, "Microsoft JhengHei", sans-serif;
     color: #f1f5f9; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
   }
-  .row { display: flex; align-items: center; gap: 14px; }
+  .row { display: flex; align-items: center; gap: 10px; }
   .timer { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .best { font-size: 13px; color: #fcd34d; }
-  .giveup {
+  .reveal {
     pointer-events: auto; margin-left: auto;
+    padding: 7px 16px; border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 999px; background: rgba(10, 12, 18, 0.5); color: #e2e8f0;
+    font-size: 13px; font-family: inherit; cursor: pointer; backdrop-filter: blur(4px);
+  }
+  .reveal.active { background: #f59e0b; color: #1a1206; border-color: #f59e0b; }
+  .giveup {
+    pointer-events: auto;
     padding: 7px 16px; border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 999px; background: rgba(10, 12, 18, 0.5); color: #e2e8f0;
     font-size: 13px; font-family: inherit; cursor: pointer; backdrop-filter: blur(4px);
@@ -284,10 +334,19 @@
   .ptitle { color: #93a4bd; }
 
   .hint {
-    position: fixed; bottom: 12px; left: 0; right: 0; text-align: center;
+    position: fixed; bottom: 20px; left: 0; right: 0; text-align: center;
     font-size: 12px; color: rgba(241, 245, 249, 0.55);
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85); pointer-events: none;
     font-family: system-ui, sans-serif;
+  }
+
+  .viewbar {
+    position: fixed; bottom: 8px; left: 10%; right: 10%; height: 4px;
+    background: rgba(255, 255, 255, 0.14); border-radius: 999px; pointer-events: none;
+  }
+  .viewfill {
+    position: absolute; top: 0; height: 100%; min-width: 6%;
+    background: rgba(245, 158, 11, 0.85); border-radius: 999px;
   }
 
   .overlay {
