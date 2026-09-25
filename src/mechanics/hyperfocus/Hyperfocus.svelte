@@ -306,7 +306,8 @@
 
   .hud {
     position: fixed; top: 0; left: 0; right: 0;
-    padding: 12px 16px; display: flex; flex-direction: column; gap: 6px;
+    /* 右側留給 App 的「← 返回」鍵，不然「放棄」會被蓋住 */
+    padding: 12px 96px 12px 16px; display: flex; flex-direction: column; gap: 6px;
     pointer-events: none;
     font-family: system-ui, "Microsoft JhengHei", sans-serif;
     color: #f1f5f9; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
