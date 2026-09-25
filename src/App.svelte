@@ -15,19 +15,25 @@
 {:else}
   <main class="menu">
     <header>
-      <h1>ADHD 症狀實驗室</h1>
-      <p>把神經多樣性的內在經驗，做成可以親身體會的小機制。選一個進去玩。</p>
+      <div class="eyebrow">ADHD 症狀實驗室</div>
+      <h1>做不好的一天</h1>
+      <p>每一關的任務都簡單到誰都會——難的是你的腦袋不配合。<br />玩完你會知道，那不是懶，也不是不在乎。</p>
     </header>
-    <ul>
+
+    <ul class="cards">
       {#each MECHANICS as m}
         <li>
           <button class="card" onclick={() => (selectedId = m.id)}>
-            <div class="card-top">
-              <span class="ctitle">{m.title}</span>
-              <span class="csymptom">{m.symptom}</span>
-              <span class="cstatus" class:polished={m.status === 'polished'}>{statusLabel[m.status]}</span>
-            </div>
-            <p class="cblurb">{m.blurb}</p>
+            <span class="icon" aria-hidden="true">{m.emoji}</span>
+            <span class="body">
+              <span class="card-top">
+                <span class="ctitle">{m.title}</span>
+                <span class="csymptom">{m.symptom}</span>
+                <span class="cstatus" class:polished={m.status === 'polished'}>{statusLabel[m.status]}</span>
+              </span>
+              <span class="ctask">{m.task}</span>
+              <span class="cblurb">{m.blurb}</span>
+            </span>
           </button>
         </li>
       {/each}
@@ -50,63 +56,47 @@
 
 <style>
   .back {
-    position: fixed;
-    top: 12px;
-    right: 14px;
-    z-index: 10;
-    padding: 8px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 999px;
-    background: rgba(10, 12, 18, 0.55);
-    color: #e2e8f0;
-    font-size: 13px;
-    font-family: system-ui, "Microsoft JhengHei", sans-serif;
-    cursor: pointer;
-    backdrop-filter: blur(4px);
+    position: fixed; top: 12px; right: 14px; z-index: 60;
+    padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
+    background: rgb(14 11 22 / 0.7); color: var(--text); font: inherit; font-size: 13px;
+    cursor: pointer; backdrop-filter: blur(4px);
   }
 
-  .menu {
-    max-width: 560px;
-    margin: 0 auto;
-    padding: 44px 20px 60px;
-    font-family: system-ui, "Microsoft JhengHei", sans-serif;
-    color: #e7ecf3;
-  }
-  header h1 { font-size: 26px; font-weight: 800; letter-spacing: 0.06em; }
-  header p { color: #9aa6b8; margin-top: 8px; font-size: 14px; line-height: 1.6; }
-  ul { list-style: none; margin: 28px 0 0; display: flex; flex-direction: column; gap: 14px; }
+  .menu { max-width: 640px; margin: 0 auto; padding-inline: 16px; padding-block: 44px 60px; display: grid; gap: 28px; }
+  header { display: grid; gap: 8px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.14em; color: var(--accent); }
+  h1 { font-size: clamp(30px, 7vw, 42px); font-weight: 900; line-height: 1.2; text-wrap: balance; }
+  header p { color: var(--muted); font-size: 15px; line-height: 1.7; }
+
+  .cards { list-style: none; display: grid; gap: 12px; }
   .card {
-    width: 100%;
-    text-align: left;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 16px;
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-    padding: 18px 20px;
-    cursor: pointer;
-    font-family: inherit;
-    color: inherit;
+    width: 100%; text-align: left; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+    padding: 18px; cursor: pointer; font: inherit; color: inherit;
     transition: transform 0.12s, border-color 0.2s;
   }
-  .card:hover { border-color: rgba(245, 158, 11, 0.6); transform: translateY(-2px); }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
   .card:active { transform: scale(0.99); }
+  .card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .icon {
+    font-family: var(--emoji); font-size: 30px; width: 54px; height: 54px; border-radius: 12px;
+    display: grid; place-items: center; background: var(--panel2);
+  }
+  .body { display: grid; gap: 4px; min-width: 0; }
   .card-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  .ctitle { font-size: 18px; font-weight: 700; }
-  .csymptom { font-size: 12px; color: #f59e0b; letter-spacing: 0.08em; }
-  .cstatus {
-    margin-left: auto; font-size: 11px; padding: 2px 9px; border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08); color: #9aa6b8; letter-spacing: 0.04em;
-  }
-  .cstatus.polished { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
-  .cblurb { color: #9aa6b8; font-size: 13px; line-height: 1.6; margin-top: 8px; }
-  footer { margin-top: 28px; text-align: center; color: #5b6678; font-size: 12px; }
+  .ctitle { font-size: 19px; font-weight: 900; }
+  .csymptom { font-size: 12px; color: var(--accent); letter-spacing: 0.06em; }
+  .cstatus { margin-left: auto; font-size: 11px; padding: 2px 9px; border-radius: 999px; background: var(--panel2); color: var(--muted); }
+  .cstatus.polished { background: rgb(92 255 166 / 0.12); color: var(--green); }
+  .ctask { font-size: 14px; color: var(--gold); }
+  .cblurb { color: var(--muted); font-size: 13.5px; line-height: 1.65; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; opacity: 0.7; }
 
-  .changelog { margin-top: 40px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 20px; }
-  .changelog h2 { font-size: 14px; color: #7c8aa0; letter-spacing: 0.1em; margin-bottom: 14px; }
+  .changelog { border-top: 1px solid var(--line); padding-top: 20px; }
+  .changelog h2 { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; font-weight: 500; }
   .clog-entry { margin-bottom: 14px; }
-  .clog-date { font-size: 12px; color: #f59e0b; font-weight: 700; margin-bottom: 4px; }
-  .clog-items { list-style: none; display: flex; flex-direction: column; gap: 3px; }
-  .clog-items li {
-    font-size: 12.5px; color: #9aa6b8; line-height: 1.5; padding-left: 14px; position: relative;
-  }
-  .clog-items li::before { content: '·'; position: absolute; left: 3px; color: #5b6678; }
+  .clog-date { font-size: 12px; color: var(--gold); font-weight: 700; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .clog-items { list-style: none; display: grid; gap: 3px; }
+  .clog-items li { font-size: 12.5px; color: var(--muted); line-height: 1.55; padding-left: 14px; position: relative; }
+  .clog-items li::before { content: '·'; position: absolute; left: 3px; }
 </style>

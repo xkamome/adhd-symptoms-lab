@@ -1,5 +1,18 @@
 :root {
   color-scheme: dark;
+  /* 全站配色：跟 Godot 版（shared/ui.gd）與原型頁一致 */
+  --bg: #0e0b16;
+  --panel: #1b1630;
+  --panel2: #15112a;
+  --line: #2c2548;
+  --accent: #a97bff;
+  --text: #e8e4f5;
+  --muted: #8b83a8;
+  --red: #ff5c7a;
+  --green: #5cffa6;
+  --gold: #ffd45c;
+  --sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --emoji: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
 }
 
 * {
@@ -16,9 +29,9 @@ body,
 }
 
 body {
-  background: #0a0c12;
-  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
-  color: #e7ecf3;
+  background: var(--bg);
+  font-family: var(--sans);
+  color: var(--text);
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
