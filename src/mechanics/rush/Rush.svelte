@@ -2,6 +2,7 @@
   // 急迫引擎（客人快到了）：同一雙手，平常又慢又飄還會突然放手；死線逼近才突然俐落。
   import { onMount } from 'svelte'
   import Debrief from '../../shared/Debrief.svelte'
+  import { localPoint } from '../../shared/stage'
 
   const TOTAL = 45 // 一局秒數
   const URGENT_LEFT = 12 // 剩這麼多秒起算「最後衝刺」
@@ -63,10 +64,7 @@
     }
   }
 
-  function local(e: PointerEvent) {
-    const r = room.getBoundingClientRect()
-    return { x: e.clientX - r.left, y: e.clientY - r.top }
-  }
+  const local = (e: PointerEvent) => localPoint(e, room)
 
   function onDown(e: PointerEvent) {
     if (phase !== 'play') return
@@ -212,7 +210,7 @@
   .emo { font-family: var(--emoji); }
   .box {
     position: absolute; border-radius: 14px; border: 2px dashed var(--accent); display: grid; place-items: center;
-    align-content: center; color: var(--muted); font-size: 13px; pointer-events: none;
+    align-content: center; color: var(--muted); font-size: 15px; pointer-events: none;
   }
   .big { font-size: 44px; }
   .item { position: absolute; font-size: 38px; width: 56px; height: 56px; display: grid; place-items: center; margin: -28px 0 0 -28px; pointer-events: none; }
@@ -221,7 +219,7 @@
   .ghost { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; border: 1px solid rgb(255 255 255 / 0.35); pointer-events: none; z-index: 11; }
   .toast {
     position: absolute; left: 50%; top: 64px; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px;
-    background: rgb(0 0 0 / 0.55); font-size: 14px; white-space: nowrap; pointer-events: none;
+    background: rgb(0 0 0 / 0.55); font-size: 16px; white-space: nowrap; pointer-events: none;
     animation: toast 1.8s forwards;
   }
   @keyframes toast { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }

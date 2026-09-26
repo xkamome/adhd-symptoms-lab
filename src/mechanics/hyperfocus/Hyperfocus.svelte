@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { FocusTunnel, type DecorateApi } from '../../shared/FocusTunnel'
+  import { getStage, localPoint, scaleOf } from '../../shared/stage'
   import { randomPainting, randomCats, TASK, type CatTarget } from './paintings'
 
   let canvas: HTMLCanvasElement
@@ -41,10 +42,19 @@
   let giveUp = $state<() => void>(() => {})
   let toggleReveal = $state<() => void>(() => {})
 
+  // 舞台縮放或轉向時重算畫布解析度（transform 縮放不會觸發 ResizeObserver）
+  const stage = getStage()
+  let resize = () => {}
+  $effect(() => {
+    void stage.scale; void stage.width
+    resize()
+  })
+
   onMount(() => {
     const ctx = canvas.getContext('2d')!
-    // dpr cap 2：手機 dpr 3 時避免離屏三層模糊圖過大吃記憶體
-    const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
+    // 座標都用舞台的邏輯 px；dpr ＝ 舞台縮放 × 裝置 dpr。裝置 dpr 照舊封頂 2（手機 dpr 3 時 WebGL 太吃力），
+    // 乘上縮放後再封頂 3，避免 4K 螢幕上畫布過大
+    let dpr = 1
     coarsePointer = matchMedia('(pointer: coarse)').matches
     const imgCache = new Map<string, HTMLImageElement>()
 
@@ -61,11 +71,13 @@
     let running = false
 
     function doResize() {
-      const rect = canvas.getBoundingClientRect()
-      canvas.width = Math.max(1, Math.round(rect.width * dpr))
-      canvas.height = Math.max(1, Math.round(rect.height * dpr))
-      tunnel?.resize(rect.width, rect.height, dpr)
+      const w = canvas.offsetWidth, h = canvas.offsetHeight
+      dpr = Math.min(3, Math.max(0.5, scaleOf(canvas) * Math.min(2, window.devicePixelRatio || 1)))
+      canvas.width = Math.max(1, Math.round(w * dpr))
+      canvas.height = Math.max(1, Math.round(h * dpr))
+      tunnel?.resize(w, h, dpr)
     }
+    resize = doResize
 
     function newRound() {
       const p = randomPainting()
@@ -116,13 +128,7 @@
       revealed = tunnel.revealed
     }
 
-    const ro = new ResizeObserver(doResize)
-    ro.observe(canvas)
-
-    const pos = (e: PointerEvent) => {
-      const r = canvas.getBoundingClientRect()
-      return { x: e.clientX - r.left, y: e.clientY - r.top }
-    }
+    const pos = (e: PointerEvent) => localPoint(e, canvas)
     const onMove = (e: PointerEvent) => {
       const p = pos(e)
       if (down && dragLast) {
@@ -231,7 +237,7 @@
 
     return () => {
       cancelAnimationFrame(raf)
-      ro.disconnect()
+      resize = () => {}
       canvas.removeEventListener('pointermove', onMove)
       canvas.removeEventListener('pointerdown', onDown)
       canvas.removeEventListener('pointerup', onUp)
@@ -307,36 +313,36 @@
   .hud {
     position: fixed; top: 0; left: 0; right: 0;
     /* 右側留給 App 的「← 返回」鍵，不然「放棄」會被蓋住 */
-    padding: 12px 96px 12px 16px; display: flex; flex-direction: column; gap: 6px;
+    padding: 12px 110px 12px 16px; display: flex; flex-direction: column; gap: 6px;
     pointer-events: none;
     font-family: system-ui, "Microsoft JhengHei", sans-serif;
     color: #f1f5f9; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
   }
   .row { display: flex; align-items: center; gap: 10px; }
   .timer { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .best { font-size: 13px; color: #fcd34d; }
+  .best { font-size: 15px; color: #fcd34d; }
   .reveal {
     pointer-events: auto; margin-left: auto;
     padding: 7px 16px; border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 999px; background: rgba(10, 12, 18, 0.5); color: #e2e8f0;
-    font-size: 13px; font-family: inherit; cursor: pointer; backdrop-filter: blur(4px);
+    font-size: 15px; font-family: inherit; cursor: pointer; backdrop-filter: blur(4px);
   }
   .reveal.active { background: #f59e0b; color: #1a1206; border-color: #f59e0b; }
   .giveup {
     pointer-events: auto;
     padding: 7px 16px; border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 999px; background: rgba(10, 12, 18, 0.5); color: #e2e8f0;
-    font-size: 13px; font-family: inherit; cursor: pointer; backdrop-filter: blur(4px);
+    font-size: 15px; font-family: inherit; cursor: pointer; backdrop-filter: blur(4px);
   }
-  .task { font-size: 14px; max-width: 640px; }
-  .stats { display: flex; gap: 14px; font-size: 13px; flex-wrap: wrap; }
+  .task { font-size: 17px; max-width: 640px; }
+  .stats { display: flex; gap: 14px; font-size: 15px; flex-wrap: wrap; }
   .found { font-weight: 700; }
   .aware { color: #fcd34d; }
   .ptitle { color: #93a4bd; }
 
   .hint {
     position: fixed; bottom: 20px; left: 0; right: 0; text-align: center;
-    font-size: 12px; color: rgba(241, 245, 249, 0.55);
+    font-size: 14px; color: rgba(241, 245, 249, 0.6);
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85); pointer-events: none;
     font-family: system-ui, sans-serif;
   }
@@ -357,19 +363,19 @@
   }
   .panel {
     background: #12141c; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 18px;
-    padding: 26px 30px; text-align: center; color: #e2e8f0; max-width: 380px; width: 100%;
+    padding: 26px 30px; text-align: center; color: #e2e8f0; max-width: 420px; width: 100%;
   }
   .panel h1 { font-size: 24px; margin-bottom: 8px; }
   .big { font-size: 18px; color: #cbd5e1; margin-bottom: 6px; }
   .big b { color: #f59e0b; font-size: 22px; }
-  .cost { font-size: 13px; color: #94a3b8; margin-bottom: 16px; }
+  .cost { font-size: 15px; color: #94a3b8; margin-bottom: 16px; }
   .board { text-align: left; background: rgba(255, 255, 255, 0.04); border-radius: 12px; padding: 10px 12px; margin-bottom: 18px; }
-  .bh { font-size: 11px; color: #7c8aa0; letter-spacing: 0.08em; margin-bottom: 6px; }
-  .rrow { display: flex; gap: 10px; font-size: 13px; padding: 2px 0; align-items: baseline; }
-  .rres { color: #f87171; width: 56px; }
+  .bh { font-size: 13px; color: #7c8aa0; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .rrow { display: flex; gap: 10px; font-size: 15px; padding: 2px 0; align-items: baseline; }
+  .rres { color: #f87171; width: 64px; }
   .rres.f { color: #4ade80; }
-  .rtime { font-variant-numeric: tabular-nums; width: 48px; color: #e2e8f0; }
-  .rpt { color: #93a4bd; font-size: 12px; }
+  .rtime { font-variant-numeric: tabular-nums; width: 56px; color: #e2e8f0; }
+  .rpt { color: #93a4bd; font-size: 14px; }
   .primary {
     padding: 12px 28px; border: none; border-radius: 999px; background: #f59e0b;
     color: #1a1206; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;

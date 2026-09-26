@@ -38,7 +38,7 @@
   .stats { display: grid; gap: 2px; font-variant-numeric: tabular-nums; line-height: 1.6; }
   .stats :global(b) { color: var(--gold); }
   .myth { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 12px; line-height: 1.65; }
-  .k { font-size: 12px; letter-spacing: 0.1em; color: var(--muted); }
+  .k { font-size: 14px; letter-spacing: 0.1em; color: var(--muted); }
   .wrong { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--red); }
   .right { color: var(--text); }
   .primary {
