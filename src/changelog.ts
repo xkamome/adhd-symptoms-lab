@@ -3,6 +3,12 @@ export interface ChangelogEntry { date: string; items: string[] }
 // 新的更新加在最前面（陣列開頭）。日期新到舊。
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-09-26',
+    items: [
+      '所有關卡改成固定比例畫面（電腦 16:9、手機直向 9:16），在高解析度螢幕上字不會再變小',
+    ],
+  },
+  {
     date: '2026-09-25',
     items: [
       '改版：新設計原則「任務簡單到誰都會，難的是腦袋不配合」；首頁換新介面',

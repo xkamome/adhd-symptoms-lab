@@ -1,6 +1,7 @@
 <script lang="ts">
   import { MECHANICS } from './mechanics/registry'
   import { CHANGELOG } from './changelog'
+  import Stage from './shared/Stage.svelte'
 
   let selectedId = $state<string | null>(null)
   const current = $derived(MECHANICS.find((m) => m.id === selectedId) ?? null)
@@ -10,8 +11,10 @@
 
 {#if current}
   {@const Mechanic = current.component}
-  <button class="back" onclick={() => (selectedId = null)}>← 返回</button>
-  <Mechanic />
+  <Stage>
+    <button class="back" onclick={() => (selectedId = null)}>← 返回</button>
+    <Mechanic />
+  </Stage>
 {:else}
   <main class="menu">
     <header>
@@ -58,7 +61,7 @@
   .back {
     position: fixed; top: 12px; right: 14px; z-index: 60;
     padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
-    background: rgb(14 11 22 / 0.7); color: var(--text); font: inherit; font-size: 13px;
+    background: rgb(14 11 22 / 0.7); color: var(--text); font: inherit; font-size: 15px;
     cursor: pointer; backdrop-filter: blur(4px);
   }
 

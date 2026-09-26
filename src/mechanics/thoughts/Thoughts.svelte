@@ -3,6 +3,7 @@
   import { onMount } from 'svelte'
   import { fade } from 'svelte/transition'
   import Debrief from '../../shared/Debrief.svelte'
+  import { rectInStage } from '../../shared/stage'
   import { makeBriefing, THOUGHTS, type Briefing } from './script'
 
   const LINE_GAP = 1.9 // 每句間隔（秒）
@@ -43,7 +44,7 @@
   }
 
   function spawn(text: string, x?: number, y?: number) {
-    const r = area.getBoundingClientRect()
+    const r = rectInStage(area)
     const w = Math.min(320, text.length * 24 + 60)
     bubbles.push({
       id: nextId++, text,
@@ -177,13 +178,13 @@
     position: relative; background: #f2eee6; color: #2a2433; border-radius: 14px;
     display: grid; place-items: center; padding: 24px; overflow: hidden;
   }
-  .line { grid-area: 1 / 1; font-size: clamp(24px, 4.2vw, 40px); font-weight: 700; text-align: center; line-height: 1.5; text-wrap: balance; }
-  .progress { position: absolute; right: 14px; bottom: 10px; font-size: 12px; color: #8a8298; font-variant-numeric: tabular-nums; }
+  .line { grid-area: 1 / 1; font-size: 34px; font-weight: 700; text-align: center; line-height: 1.5; text-wrap: balance; }
+  .progress { position: absolute; right: 14px; bottom: 10px; font-size: 14px; color: #8a8298; font-variant-numeric: tabular-nums; }
 
   .bubble {
     position: fixed; left: 0; top: 0; z-index: 20; transform-origin: center;
     background: #fff; color: #2a2433; border: 0; border-radius: 999px;
-    padding: 14px 24px; font: inherit; font-size: clamp(19px, 2.6vw, 24px); font-weight: 700; white-space: nowrap;
+    padding: 14px 24px; font: inherit; font-size: 21px; font-weight: 700; white-space: nowrap;
     box-shadow: 0 8px 24px rgb(0 0 0 / 0.4); cursor: pointer; touch-action: manipulation;
   }
 
